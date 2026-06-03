@@ -1,0 +1,13 @@
+# Rust build artifacts
+/target/
+debug/
+**/*.rs.bk
+*.pdb
+
+# Training outputs
+out/
+*.mpk
+*.safetensors
+
+# OS
+.DS_Store

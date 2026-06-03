@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Softmax & Cross-Entropy Loss</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {
+    delimiters: [
+      {left:'$$', right:'$$', display:true},
+      {left:'$', right:'$', display:false}
+    ],
+    throwOnError: false
+  })"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; line-height: 1.7; }
+
+  .container { max-width: 980px; margin: 0 auto; padding: 40px 24px; }
+  h1 { font-size: 2rem; color: #7dd3fc; margin-bottom: 8px; }
+  .subtitle { color: #94a3b8; margin-bottom: 48px; font-size: 0.95rem; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 32px; border-bottom: 1px solid #334155; }
+  .tab { padding: 10px 20px; cursor: pointer; border-radius: 8px 8px 0 0; color: #94a3b8; font-size: 0.9rem; transition: all 0.2s; border-bottom: 2px solid transparent; }
+  .tab:hover { color: #e2e8f0; background: #1e293b; }
+  .tab.active { color: #7dd3fc; border-bottom: 2px solid #7dd3fc; background: #1e293b; }
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 28px; margin-bottom: 24px; }
+  .card h2 { font-size: 1.15rem; color: #f1f5f9; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tag { font-size: 0.7rem; background: #0ea5e9; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600; white-space: nowrap; }
+  .tag.green  { background: #22c55e; }
+  .tag.purple { background: #a855f7; }
+  .tag.orange { background: #f97316; }
+
+  /* ---- KaTeX math blocks ---- */
+  .math-block {
+    background: #0c1322;
+    border: 1px solid #2d4a7a;
+    border-radius: 10px;
+    padding: 20px 28px;
+    margin: 14px 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .math-block .katex { font-size: 1.25em; }
+  .math-block .caption {
+    margin-top: 8px;
+    font-size: 0.78rem;
+    color: #64748b;
+    font-style: italic;
+    text-align: center;
+  }
+  /* inline math color override */
+  .katex { color: #e9d97b; }
+  /* display math slightly brighter */
+  .math-block .katex { color: #fef3c7; }
+
+  /* ---- derivation chain ---- */
+  .deriv-chain {
+    background: #0c1322;
+    border: 1px solid #2d4a7a;
+    border-radius: 10px;
+    padding: 24px 32px;
+    margin: 14px 0;
+    overflow-x: auto;
+  }
+  .deriv-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid #1e3352;
+    flex-wrap: wrap;
+  }
+  .deriv-row:last-child { border-bottom: none; }
+  .deriv-row .eq { flex: 1; min-width: 200px; }
+  .deriv-row .reason {
+    font-size: 0.78rem;
+    color: #64748b;
+    font-style: italic;
+    min-width: 140px;
+    text-align: right;
+  }
+  .deriv-row.highlight { background: #0f2a1a; border-radius: 6px; padding: 12px 10px; border-bottom: none; margin-top: 6px; }
+  .deriv-row.highlight .katex { color: #86efac; }
+
+  /* ---- sliders ---- */
+  .slider-group { margin: 14px 0; }
+  .slider-label { display: flex; justify-content: space-between; font-size: 0.85rem; color: #94a3b8; margin-bottom: 5px; }
+  .slider-label span { color: #7dd3fc; font-weight: 600; font-family: monospace; }
+  input[type=range] { width: 100%; accent-color: #7dd3fc; cursor: pointer; }
+
+  /* ---- bars ---- */
+  .bar-container { margin: 14px 0; }
+  .bar-row { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
+  .bar-label { width: 80px; font-size: 0.82rem; color: #94a3b8; text-align: right; font-family: monospace; }
+  .bar-wrap { flex: 1; background: #0f172a; border-radius: 4px; height: 24px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.25s; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: 0.74rem; font-weight: 600; color: white; min-width: 2px; }
+  .bar-fill.blue   { background: linear-gradient(90deg, #0ea5e9, #38bdf8); }
+  .bar-fill.green  { background: linear-gradient(90deg, #22c55e, #4ade80); }
+  .bar-fill.red    { background: linear-gradient(90deg, #ef4444, #f87171); }
+  .bar-fill.purple { background: linear-gradient(90deg, #a855f7, #c084fc); }
+  .bar-fill.orange { background: linear-gradient(90deg, #f97316, #fb923c); }
+  .bar-val { width: 60px; font-size: 0.82rem; color: #f1f5f9; font-family: monospace; text-align: right; }
+
+  .output { background: #0f172a; border-radius: 8px; padding: 14px 18px; margin-top: 12px; }
+  .output-row { display: flex; justify-content: space-between; margin: 5px 0; font-size: 0.88rem; }
+  .output-row .key { color: #94a3b8; }
+  .output-row .val { color: #fde68a; font-family: monospace; font-weight: 600; }
+  .output-row .val.loss { color: #f87171; }
+
+  .grad-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.85rem; }
+  .grad-table th { background: #0f172a; color: #7dd3fc; padding: 9px 12px; text-align: left; border-bottom: 1px solid #334155; }
+  .grad-table td { padding: 8px 12px; border-bottom: 1px solid #1a2744; font-family: monospace; }
+  .grad-table tr:hover td { background: #1e293b; }
+  td.positive { color: #4ade80; }
+  td.negative { color: #f87171; }
+  td.neutral  { color: #94a3b8; }
+
+  .intuition { background: #1a2744; border-left: 3px solid #7dd3fc; padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 12px 0; font-size: 0.88rem; color: #cbd5e1; }
+  .intuition strong { color: #7dd3fc; }
+
+  .context-box { background: #1a1f2e; border: 1px dashed #475569; border-radius: 8px; padding: 16px; margin: 12px 0; font-size: 0.88rem; color: #94a3b8; }
+  .context-box .hl { color: #fde68a; font-weight: 600; }
+
+  .big-loss { text-align: center; font-size: 3rem; font-weight: 700; font-family: monospace; margin: 14px 0; transition: color 0.3s; }
+
+  button.btn { background: #0ea5e9; color: white; border: none; padding: 7px 18px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin: 3px; transition: background 0.2s; }
+  button.btn:hover { background: #38bdf8; }
+  button.btn.secondary { background: #334155; }
+  button.btn.secondary:hover { background: #475569; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media(max-width:620px){ .two-col { grid-template-columns: 1fr; } }
+
+  .note { background: #1e3a1e; border: 1px solid #22c55e; border-radius: 8px; padding: 12px 16px; font-size: 0.84rem; color: #86efac; margin: 12px 0; }
+  .warn { background: #3a1e1e; border: 1px solid #ef4444; border-radius: 8px; padding: 12px 16px; font-size: 0.84rem; color: #fca5a5; margin: 12px 0; }
+
+  /* range bar for CE */
+  .range-bar { display: flex; height: 28px; border-radius: 6px; overflow: hidden; margin: 16px 0; font-size: 0.78rem; font-weight: 600; }
+  .range-seg { display: flex; align-items: center; justify-content: center; color: white; }
+
+  p.desc { color: #94a3b8; font-size: 0.9rem; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Softmax &amp; Cross-Entropy Loss</h1>
+  <p class="subtitle">Interactive guide · beautiful math · chain-rule derivation · GPT-2 context</p>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('softmax')">1. Softmax</div>
+    <div class="tab" onclick="showTab('crossentropy')">2. Cross-Entropy</div>
+    <div class="tab" onclick="showTab('combined')">3. Combined</div>
+    <div class="tab" onclick="showTab('gradient')">4. Gradient ∂L/∂z</div>
+    <div class="tab" onclick="showTab('quotient')">📐 Quotient Rule</div>
+    <div class="tab" onclick="showTab('chain')">🔗 Chain Rule</div>
+    <div class="tab" onclick="showTab('lr')">🎯 Learning Rate</div>
+  </div>
+
+  <!-- ==================== SOFTMAX ==================== -->
+  <div id="softmax" class="section active">
+
+    <div class="card">
+      <h2>Softmax <span class="tag">logits → probabilities</span></h2>
+      <p class="desc">Given raw scores (logits) from the model, softmax converts them into a valid probability distribution — all values positive, all sum to 1.</p>
+
+      <div class="math-block">
+        $$\sigma(\mathbf{z})_i \;=\; \frac{e^{z_i}}{\displaystyle\sum_{j=1}^{K} e^{z_j}}$$
+        <div class="caption">$z_i$ = logit for class $i$, &nbsp; $K$ = number of classes (vocab size in GPT-2)</div>
+      </div>
+
+      <div class="intuition">
+        <strong>Why exponential?</strong> $e^x$ is always positive (ensures valid probabilities) and amplifies differences — a logit 2 units higher becomes $e^2 \approx 7.4\times$ more probable. The denominator normalises everything to sum to 1.
+      </div>
+
+      <div class="math-block">
+        $$\sum_{i=1}^{K} \sigma(\mathbf{z})_i = 1, \qquad \sigma(\mathbf{z})_i \in (0, 1)$$
+        <div class="caption">These two properties make the output a valid probability distribution.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Interactive — adjust logits, watch probabilities</h2>
+      <div id="logit-sliders"></div>
+      <div class="bar-container">
+        <p style="color:#7dd3fc;font-size:0.83rem;margin-bottom:8px;">Logits $z_i$ (raw scores):</p>
+        <div id="logit-bar-rows"></div>
+      </div>
+      <div class="bar-container">
+        <p style="color:#4ade80;font-size:0.83rem;margin-bottom:8px;">Softmax output $\sigma(\mathbf{z})_i$ (sum = 1):</p>
+        <div id="softmax-bar-rows"></div>
+        <div class="output">
+          <div class="output-row"><span class="key">$\sum p_i$</span><span class="val" id="prob-sum">1.0000</span></div>
+          <div class="output-row"><span class="key">$\arg\max p_i$</span><span class="val" id="argmax-token">—</span></div>
+        </div>
+      </div>
+      <div class="note">Try all logits equal → uniform $1/K$ each. Raise one very high → probability collapses toward that token.</div>
+    </div>
+
+    <div class="card">
+      <h2>Temperature scaling</h2>
+      <p class="desc">Dividing logits by $T$ before softmax controls "sharpness". GPT-2 inference uses this.</p>
+      <div class="math-block">
+        $$\sigma\!\left(\frac{\mathbf{z}}{T}\right)_i = \frac{e^{z_i/T}}{\sum_j e^{z_j/T}}$$
+      </div>
+      <div class="two-col">
+        <div>
+          <div class="slider-group">
+            <div class="slider-label">Temperature $T$: <span id="temp-val">1.00</span></div>
+            <input type="range" min="0.1" max="3" step="0.05" value="1.0" oninput="updateTemp(this)">
+          </div>
+          <div id="temp-bars"></div>
+        </div>
+        <div>
+          <div class="intuition" style="margin-top:0">
+            <strong>$T \to 0$:</strong> argmax — always pick the top token<br><br>
+            <strong>$T = 1$:</strong> raw model probabilities<br><br>
+            <strong>$T > 1$:</strong> flatter — more random / creative
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== CROSS-ENTROPY ==================== -->
+  <div id="crossentropy" class="section">
+
+    <div class="card">
+      <h2>Cross-Entropy Loss <span class="tag green">measures prediction quality</span></h2>
+      <p class="desc">Cross-entropy measures how surprised the model is by the true label. Lower = better.</p>
+
+      <div class="math-block">
+        $$\mathcal{L} \;=\; -\sum_{i=1}^{K} y_i \log p_i$$
+        <div class="caption">General form. $y_i \in \{0,1\}$ is the one-hot label; $p_i$ is the predicted probability.</div>
+      </div>
+
+      <div class="math-block">
+        $$\mathcal{L} \;=\; -\log p_y$$
+        <div class="caption">Simplified: since $y$ is one-hot, all terms vanish except the correct class $y$.</div>
+      </div>
+
+      <div class="intuition">
+        <strong>Why $-\log$?</strong> &nbsp; $p_y = 1 \Rightarrow \mathcal{L} = 0$ (perfect). &nbsp; $p_y \to 0 \Rightarrow \mathcal{L} \to \infty$ (catastrophic). The log scale heavily penalises overconfident wrong predictions.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Range of cross-entropy loss</h2>
+
+      <div class="math-block">
+        $$\mathcal{L} = -\log p_y, \qquad p_y \in (0,\, 1]$$
+        $$\mathcal{L} \;\in\; [0,\; +\infty)$$
+      </div>
+
+      <div style="margin: 18px 0 6px; font-size:0.83rem; color:#94a3b8;">Visual range (clamped at $\mathcal{L}=5$):</div>
+      <div class="range-bar">
+        <div class="range-seg" style="width:10%;background:#22c55e;">0</div>
+        <div class="range-seg" style="width:20%;background:#4ade80;"></div>
+        <div class="range-seg" style="width:20%;background:#fde68a;color:#1e293b;">ln 2 ≈ 0.69</div>
+        <div class="range-seg" style="width:20%;background:#f97316;">ln 10 ≈ 2.30</div>
+        <div class="range-seg" style="width:30%;background:#ef4444;">→ ∞</div>
+      </div>
+
+      <table class="grad-table">
+        <thead><tr><th>$p_y$</th><th>$\mathcal{L} = -\log p_y$</th><th>Meaning</th><th>Typical scenario</th></tr></thead>
+        <tbody>
+          <tr><td>1.000</td><td class="positive">0.000</td><td class="positive">Perfect</td><td>Model is 100% sure, correct</td></tr>
+          <tr><td>0.990</td><td class="positive">0.010</td><td class="positive">Excellent</td><td>Well-trained GPT-2</td></tr>
+          <tr><td>0.900</td><td class="positive">0.105</td><td class="positive">Good</td><td></td></tr>
+          <tr><td>0.500</td><td class="neutral">0.693 = ln 2</td><td class="neutral">Uniform 2-class guess</td><td>Early training</td></tr>
+          <tr><td>1/K</td><td class="neutral">ln K</td><td class="neutral">Uniform K-class</td><td>Random init (GPT-2: ln 50257 ≈ 10.8)</td></tr>
+          <tr><td>0.100</td><td class="negative">2.303 = ln 10</td><td class="negative">Poor</td><td></td></tr>
+          <tr><td>0.010</td><td class="negative">4.605</td><td class="negative">Very poor</td><td></td></tr>
+          <tr><td>→ 0</td><td class="negative">→ ∞</td><td class="negative">Catastrophic</td><td>Overconfident and wrong</td></tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        GPT-2 at random init has $K = 50257$ classes → $\mathcal{L}_0 = \ln 50257 \approx 10.82$.<br>
+        A well-trained model typically reaches $\mathcal{L} \approx 2$–$3$ on text.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Interactive — vary prediction confidence</h2>
+      <p class="desc">Drag to change the probability assigned to the correct token. $\mathcal{L} = -\log p_y$.</p>
+      <div class="slider-group">
+        <div class="slider-label">$p_y$ (correct token probability): <span id="pval">0.50</span></div>
+        <input type="range" min="0.01" max="0.9999" step="0.01" value="0.50" oninput="updateCE(this)">
+      </div>
+      <div class="big-loss" id="ce-display">0.6931</div>
+      <div class="bar-container">
+        <div class="bar-row">
+          <div class="bar-label">$\mathcal{L}$</div>
+          <div class="bar-wrap"><div class="bar-fill red" id="ce-bar" style="width:11.5%"></div></div>
+          <div class="bar-val" id="ce-bar-val">0.6931</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>In GPT-2</h2>
+      <div class="context-box">
+        Input: <span class="hl">"The cat sat on the"</span><br>
+        Target next token: <span class="hl">"mat"</span> (vocab index 3456)<br><br>
+        GPT-2 outputs logits $\mathbf{z} \in \mathbb{R}^{50257}$<br>
+        $\to$ softmax $\to$ $\mathbf{p} \in (0,1)^{50257}$<br>
+        $\to$ Loss $= -\log p_{\text{"mat"}}$<br><br>
+        Averaged over all tokens in batch → <span class="hl">mean cross-entropy loss</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== COMBINED ==================== -->
+  <div id="combined" class="section">
+
+    <div class="card">
+      <h2>Softmax + Cross-Entropy fused <span class="tag purple">log-sum-exp form</span></h2>
+      <p class="desc">Plugging softmax into cross-entropy gives a numerically stable form PyTorch uses internally.</p>
+
+      <div class="math-block">
+        $$p_i = \frac{e^{z_i}}{\sum_j e^{z_j}}$$
+      </div>
+
+      <div class="math-block">
+        $$\mathcal{L} = -\log p_y = -\log \frac{e^{z_y}}{\sum_j e^{z_j}}$$
+      </div>
+
+      <div class="math-block">
+        $$\boxed{\mathcal{L} = -z_y + \log \sum_{j=1}^K e^{z_j}}$$
+        <div class="caption">$z_y$ = logit of the correct class · $\log \sum_j e^{z_j}$ = LogSumExp (the normalising term)</div>
+      </div>
+
+      <div class="intuition">
+        <strong>Why this form matters:</strong><br>
+        • No explicit softmax needed — avoids overflow from large $e^{z_i}$<br>
+        • PyTorch's <code>F.cross_entropy(logits, targets)</code> computes exactly this<br>
+        • The gradient falls out cleanly (next tab)
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Interactive — full pipeline</h2>
+      <p class="desc">Select the correct token, adjust logits, watch the full chain live.</p>
+      <div style="margin-bottom:12px;"><strong style="color:#f1f5f9;">Correct token $y$: </strong><span id="correct-btns"></span></div>
+      <div id="full-sliders"></div>
+      <div class="two-col" style="margin-top:16px;">
+        <div>
+          <p style="color:#7dd3fc;font-size:0.83rem;margin-bottom:8px;">Logits $z_i$:</p>
+          <div id="full-logit-bars"></div>
+        </div>
+        <div>
+          <p style="color:#4ade80;font-size:0.83rem;margin-bottom:8px;">Softmax $p_i$:</p>
+          <div id="full-prob-bars"></div>
+        </div>
+      </div>
+      <div class="output">
+        <div class="output-row"><span class="key">$z_y$ (correct logit)</span><span class="val" id="zy-val">—</span></div>
+        <div class="output-row"><span class="key">$\log\sum_j e^{z_j}$ (LogSumExp)</span><span class="val" id="lse-val">—</span></div>
+        <div class="output-row"><span class="key">$p_y = \sigma(\mathbf{z})_y$</span><span class="val" id="py-val">—</span></div>
+        <div class="output-row"><span class="key">$\mathcal{L} = -\log p_y$</span><span class="val loss" id="full-loss">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== GRADIENT ==================== -->
+  <div id="gradient" class="section">
+
+    <div class="card">
+      <h2>The elegant result <span class="tag orange">∂L/∂z</span></h2>
+      <p class="desc">Differentiating softmax × cross-entropy collapses to a single elegant formula.</p>
+
+      <div class="math-block">
+        $$\frac{\partial \mathcal{L}}{\partial z_i} \;=\; p_i - y_i$$
+        <div class="caption">$p_i$ = predicted probability · $y_i \in \{0,1\}$ = one-hot label</div>
+      </div>
+
+      <div class="two-col">
+        <div class="math-block">
+          $$\frac{\partial \mathcal{L}}{\partial z_y} = p_y - 1 \;<0$$
+          <div class="caption">Correct class: always push logit <strong style="color:#4ade80">up</strong></div>
+        </div>
+        <div class="math-block">
+          $$\frac{\partial \mathcal{L}}{\partial z_i} = p_i \;>0 \quad (i \neq y)$$
+          <div class="caption">Wrong classes: push logit <strong style="color:#f87171">down</strong></div>
+        </div>
+      </div>
+
+      <div class="intuition">
+        <strong>Intuition:</strong> The gradient says "how much did you screw up?" — for the correct token, you were $p_y$ confident but should have been 1.0, so the error is $p_y - 1$. For wrong tokens, you were $p_i$ confident and should have been 0, so the error is $p_i$.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Full chain-rule derivation</h2>
+      <p class="desc">We differentiate $\mathcal{L}$ w.r.t. logit $z_i$ via two cases. First, the softmax Jacobian:</p>
+
+      <div class="math-block">
+        $$\frac{\partial p_i}{\partial z_j} = \begin{cases} p_i(1 - p_i) & i = j \\ -p_i\, p_j & i \neq j \end{cases}$$
+        <div class="caption">Derived from the quotient rule on $e^{z_i}/\sum_k e^{z_k}$.</div>
+      </div>
+
+      <div class="intuition">
+        <strong>Quotient rule refresher.</strong> &nbsp; For a fraction $f = \dfrac{u}{v}$:
+        $$f' = \frac{u'\,v - u\,v'}{v^2} \quad\text{“(top}'\times\text{bottom} - \text{top}\times\text{bottom}')\,/\,\text{bottom}^2\text{”}$$
+        Here $u = e^{z_i}$ and $v = S = \sum_k e^{z_k}$. Note <strong>cross-entropy is not involved yet</strong> — this step only asks how the softmax output $p_i$ moves when we nudge a logit $z_j$.
+      </div>
+
+      <p class="desc" style="margin-top:16px;"><strong style="color:#f1f5f9;">Where does the Jacobian come from?</strong> &nbsp; Apply the quotient rule to $p_i = e^{z_i}/S$. The only $z_j$-dependent pieces are the numerator $e^{z_i}$ (its derivative is nonzero only when $i=j$) and $S$ (whose derivative is always $e^{z_j}$, since $S$ contains exactly one $e^{z_j}$ term).</p>
+
+      <div class="deriv-chain">
+        <div class="deriv-row">
+          <div class="eq">$p_i = \dfrac{e^{z_i}}{S}, \quad S = \displaystyle\sum_k e^{z_k}$</div>
+          <div class="eq">$\dfrac{\partial S}{\partial z_j} = e^{z_j}$</div>
+          <div class="reason">setup · derivative of the denominator</div>
+        </div>
+        <div class="deriv-row">
+          <div class="eq">$\dfrac{\partial p_i}{\partial z_j}$</div>
+          <div class="eq">$= \dfrac{\dfrac{\partial e^{z_i}}{\partial z_j}\, S \;-\; e^{z_i}\dfrac{\partial S}{\partial z_j}}{S^2}$</div>
+          <div class="reason">quotient rule</div>
+        </div>
+        <div class="deriv-row">
+          <div class="eq">$= \dfrac{[i=j]\,e^{z_i} S - e^{z_i} e^{z_j}}{S^2}$</div>
+          <div class="eq">$= [i=j]\,\dfrac{e^{z_i}}{S} - \dfrac{e^{z_i}}{S}\dfrac{e^{z_j}}{S}$</div>
+          <div class="reason">$\partial e^{z_i}/\partial z_j = e^{z_i}$ iff $i=j$, else $0$</div>
+        </div>
+        <div class="deriv-row">
+          <div class="eq"></div>
+          <div class="eq">$= [i=j]\,p_i - p_i\, p_j$</div>
+          <div class="reason">recognise $e^{z_i}/S = p_i,\; e^{z_j}/S = p_j$</div>
+        </div>
+        <div class="deriv-row highlight">
+          <div class="eq">$i = j:\;\; p_i(1 - p_i)$</div>
+          <div class="eq">$i \neq j:\;\; -p_i\, p_j$</div>
+          <div class="reason">split the indicator $[i=j]$</div>
+        </div>
+      </div>
+
+      <div class="intuition">
+        <strong>Reading it off:</strong> the $-p_i p_j$ term is always present (raising any logit $z_j$ steals probability from class $i$). When $i = j$ there is an extra $+p_i$ from the numerator, giving $p_i - p_i^2 = p_i(1-p_i)$ — raising a class's own logit boosts it, minus the share it loses to renormalisation.
+      </div>
+
+      <div class="note">
+        <strong>So where does cross-entropy come in?</strong> The Jacobian above is <em>only</em> $\partial p_i/\partial z_j$ — softmax differentiated by itself. Cross-entropy is the <strong>loss we actually differentiate</strong>. Recall it first, then apply the chain rule.
+      </div>
+
+      <p class="desc" style="margin-top:16px;"><strong style="color:#f1f5f9;">Step 0 — the cross-entropy loss itself (what we're differentiating):</strong></p>
+      <div class="deriv-chain">
+        <div class="deriv-row">
+          <div class="eq">$\mathcal{L}$</div>
+          <div class="eq">$= -\displaystyle\sum_{i=1}^K y_i \log p_i$</div>
+          <div class="reason">cross-entropy, general form</div>
+        </div>
+        <div class="deriv-row highlight">
+          <div class="eq"></div>
+          <div class="eq">$= -\log p_y$</div>
+          <div class="reason">$y$ is one-hot: $y_y=1$, rest $0$</div>
+        </div>
+      </div>
+
+      <p class="desc" style="margin-top:16px;"><strong style="color:#f1f5f9;">Step 1 — chain rule splits the loss into a CE part × a softmax part:</strong></p>
+
+      <div class="intuition">
+        <strong>Chain rule refresher.</strong> &nbsp; If $\mathcal{L}$ depends on $z_i$ <em>through</em> the intermediate $p_y$ (i.e. $\mathcal{L} = f(p_y)$ and $p_y = g(z_i)$), then differentiate the outer function, then the inner:
+        $$\frac{d}{dx}\,f\big(g(x)\big) = f'\big(g(x)\big)\cdot g'(x), \qquad\text{here}\qquad \frac{\partial \mathcal{L}}{\partial z_i} = \frac{\partial \mathcal{L}}{\partial p_y}\cdot\frac{\partial p_y}{\partial z_i}$$
+        “outer derivative × inner derivative.” The outer is $\mathcal{L}=-\log p_y$; the inner is the softmax $p_y(z)$.
+      </div>
+
+      <div class="math-block">
+        $$\frac{\partial \mathcal{L}}{\partial z_i} \;=\; \underbrace{\frac{\partial \mathcal{L}}{\partial p_y}}_{\text{outer: CE}}\cdot \underbrace{\frac{\partial p_y}{\partial z_i}}_{\text{inner: softmax}} \;=\; \underbrace{-\frac{1}{p_y}}_{\text{CE derivative}}\cdot \underbrace{\frac{\partial p_y}{\partial z_i}}_{\text{softmax Jacobian}}$$
+        <div class="caption">The outer CE loss contributes the factor $-\tfrac{1}{p_y}$, since $\frac{d}{dx}(-\log x) = -\tfrac1x$. The two cases below plug each Jacobian branch into this — and $p_y$ cancels every time.</div>
+      </div>
+
+      <p class="desc" style="margin-top:16px;"><strong style="color:#f1f5f9;">Case 1 — correct class ($i = y$):</strong></p>
+      <div class="deriv-chain">
+        <div class="deriv-row">
+          <div class="eq">$\dfrac{\partial \mathcal{L}}{\partial z_y}$</div>
+          <div class="eq">$= \dfrac{\partial}{\partial z_y}\bigl[-\log p_y\bigr]$</div>
+          <div class="reason">definition of $\mathcal{L}$</div>
+        </div>
+        <div class="deriv-row">
+          <div class="eq"></div>
+          <div class="eq">$= -\dfrac{1}{p_y} \cdot \dfrac{\partial p_y}{\partial z_y}$</div>
+          <div class="reason">chain rule</div>
+        </div>
+        <div class="deriv-row">
+          <div class="eq"></div>
+          <div class="eq">$= -\dfrac{1}{p_y} \cdot p_y(1 - p_y)$</div>
+          <div class="reason">softmax Jacobian, $i=j$ case</div>
+        </div>
+        <div class="deriv-row highlight">
+          <div class="eq"></div>
+          <div class="eq">$= p_y - 1$</div>
+          <div class="reason">simplify · always $< 0$</div>
+        </div>
+      </div>
+
+      <p class="desc" style="margin-top:16px;"><strong style="color:#f1f5f9;">Case 2 — wrong class ($i \neq y$):</strong></p>
+      <div class="deriv-chain">
+        <div class="deriv-row">
+          <div class="eq">$\dfrac{\partial \mathcal{L}}{\partial z_i}$</div>
+          <div class="eq">$= \dfrac{\partial}{\partial z_i}\bigl[-\log p_y\bigr]$</div>
+          <div class="reason">definition of $\mathcal{L}$</div>
+        </div>
+        <div class="deriv-row">
+          <div class="eq"></div>
+          <div class="eq">$= -\dfrac{1}{p_y} \cdot \dfrac{\partial p_y}{\partial z_i}$</div>
+          <div class="reason">chain rule</div>
+        </div>
+        <div class="deriv-row">
+          <div class="eq"></div>
+          <div class="eq">$= -\dfrac{1}{p_y} \cdot \bigl(-p_y \cdot p_i\bigr)$</div>
+          <div class="reason">softmax Jacobian, $i \neq j$ case</div>
+        </div>
+        <div class="deriv-row highlight">
+          <div class="eq"></div>
+          <div class="eq">$= p_i$</div>
+          <div class="reason">simplify · always $> 0$</div>
+        </div>
+      </div>
+
+      <p class="desc" style="margin-top:16px;"><strong style="color:#f1f5f9;">Unified (both cases at once):</strong></p>
+      <div class="math-block" style="border-color:#4ade80;">
+        $$\boxed{\frac{\partial \mathcal{L}}{\partial z_i} = p_i - y_i}$$
+        <div class="caption">One formula covers both cases because $y_y = 1$ and $y_i = 0$ for $i \neq y$.</div>
+      </div>
+
+      <div class="note">
+        The $p_y$ cancels perfectly in both cases — that's why the combined softmax + cross-entropy gradient is so clean. Differentiating them separately is much messier; together they simplify beautifully.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Interactive — see gradients live</h2>
+      <p class="desc">Adjust logits and the correct class. Each gradient = $p_i - y_i$.</p>
+      <div style="margin-bottom:12px;"><strong style="color:#f1f5f9;">Correct class $y$: </strong><span id="grad-correct-btns"></span></div>
+      <div id="grad-sliders"></div>
+      <table class="grad-table" style="margin-top:14px;">
+        <thead>
+          <tr>
+            <th>Token</th><th>$z_i$</th><th>$p_i$</th><th>$y_i$</th>
+            <th>$\partial\mathcal{L}/\partial z_i = p_i - y_i$</th><th>Effect</th>
+          </tr>
+        </thead>
+        <tbody id="grad-table-body"></tbody>
+      </table>
+      <div class="output">
+        <div class="output-row"><span class="key">$\mathcal{L}$</span><span class="val loss" id="grad-loss">—</span></div>
+        <div class="output-row"><span class="key">$\sum_i \partial\mathcal{L}/\partial z_i$</span><span class="val" id="grad-sum">—</span></div>
+      </div>
+      <div class="note">Gradients always sum to 0 — probability mass shifted away from wrong classes exactly equals mass added to the correct class.</div>
+    </div>
+
+    <div class="card">
+      <h2>GPT-2 connection</h2>
+      <div class="context-box">
+        <code>lm_head</code> outputs logits $\mathbf{z} \in \mathbb{R}^{50257}$ for each token position.<br><br>
+        <span class="hl"><code>loss = F.cross_entropy(logits.view(-1, 50257), targets.view(-1))</code></span><br><br>
+        PyTorch fuses softmax + CE internally → during <code>loss.backward()</code> it computes<br>
+        gradients as $p_i - y_i$ directly, then propagates them back through all attention layers.
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== QUOTIENT RULE ==================== -->
+  <div id="quotient" class="section">
+
+    <div class="card">
+      <h2>Quotient Rule <span class="tag">differentiating a fraction</span></h2>
+      <p class="desc">When you have a function written as one thing divided by another — like softmax's $e^{z_i}/S$ — this is the rule for its derivative.</p>
+
+      <div class="math-block">
+        $$f(x) = \frac{u(x)}{v(x)} \quad\Longrightarrow\quad f'(x) = \frac{u'\,v - u\,v'}{v^2}$$
+        <div class="caption">$u$ = top (numerator), &nbsp; $v$ = bottom (denominator)</div>
+      </div>
+
+      <div class="intuition">
+        <strong>How to remember it:</strong> &nbsp; <em>“low d-high minus high d-low, over low-squared.”</em><br><br>
+        (<strong>top′ × bottom</strong>) − (<strong>top × bottom′</strong>), all divided by <strong>bottom²</strong>.<br><br>
+        Order matters — the $u'v$ term comes <em>first</em> (the minus sign would flip the answer if you swapped them).
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Worked example</h2>
+      <p class="desc">Take a concrete fraction and apply the rule step by step.</p>
+      <div class="deriv-chain">
+        <div class="deriv-row">
+          <div class="eq">$f(x) = \dfrac{x^2}{x+1}$</div>
+          <div class="eq">$u = x^2,\quad v = x+1$</div>
+          <div class="reason">identify top &amp; bottom</div>
+        </div>
+        <div class="deriv-row">
+          <div class="eq">$u' = 2x$</div>
+          <div class="eq">$v' = 1$</div>
+          <div class="reason">differentiate each part</div>
+        </div>
+        <div class="deriv-row">
+          <div class="eq">$f' = \dfrac{u'v - uv'}{v^2}$</div>
+          <div class="eq">$= \dfrac{2x(x+1) - x^2(1)}{(x+1)^2}$</div>
+          <div class="reason">plug into the rule</div>
+        </div>
+        <div class="deriv-row highlight">
+          <div class="eq"></div>
+          <div class="eq">$= \dfrac{x^2 + 2x}{(x+1)^2}$</div>
+          <div class="reason">simplify the top</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Interactive — verify it numerically</h2>
+      <p class="desc">Move $x$ and compare the <strong>exact</strong> derivative from the rule against a <strong>numerical</strong> estimate $\frac{f(x+h)-f(x-h)}{2h}$. They should match.</p>
+      <div class="slider-group">
+        <div class="slider-label">$x$: <span id="qr-x">2.00</span></div>
+        <input type="range" min="0" max="5" step="0.05" value="2.0" oninput="updateQuotient(this)">
+      </div>
+      <div class="output">
+        <div class="output-row"><span class="key">$u = x^2$</span><span class="val" id="qr-u">—</span></div>
+        <div class="output-row"><span class="key">$v = x+1$</span><span class="val" id="qr-v">—</span></div>
+        <div class="output-row"><span class="key">$u' = 2x$</span><span class="val" id="qr-up">—</span></div>
+        <div class="output-row"><span class="key">$v' = 1$</span><span class="val" id="qr-vp">1.0000</span></div>
+        <div class="output-row"><span class="key">$f(x) = u/v$</span><span class="val" id="qr-f">—</span></div>
+        <div class="output-row"><span class="key">$f'(x)$ — quotient rule (exact)</span><span class="val" id="qr-exact">—</span></div>
+        <div class="output-row"><span class="key">$f'(x)$ — numerical estimate</span><span class="val" id="qr-num">—</span></div>
+      </div>
+      <div class="note" id="qr-match">✓ The two derivatives agree — the quotient rule is correct.</div>
+    </div>
+
+    <div class="card">
+      <h2>Why softmax needs it <span class="tag green">connection</span></h2>
+      <p class="desc">Softmax is literally a fraction, so its derivative is a quotient-rule problem.</p>
+      <div class="math-block">
+        $$p_i = \frac{\overbrace{e^{z_i}}^{u}}{\underbrace{\textstyle\sum_k e^{z_k}}_{v\,=\,S}}$$
+      </div>
+      <div class="intuition">
+        Here $u = e^{z_i}$ and $v = S = \sum_k e^{z_k}$. Applying <em>exactly</em> the rule above (with $u' = \partial e^{z_i}/\partial z_j$ and $v' = \partial S/\partial z_j = e^{z_j}$) gives the <strong>softmax Jacobian</strong> $\partial p_i/\partial z_j$ shown in the <strong>Gradient</strong> tab. Nothing new — same rule, just $u,v$ replaced by exponentials.
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== CHAIN RULE ==================== -->
+  <div id="chain" class="section">
+
+    <div class="card">
+      <h2>Chain Rule <span class="tag purple">differentiating nested functions</span></h2>
+      <p class="desc">When a function is wrapped inside another — like $\mathcal{L} = -\log(\,p_y(z)\,)$, a loss <em>of</em> a probability <em>of</em> a logit — this is how you differentiate through the layers.</p>
+
+      <div class="math-block">
+        $$\frac{d}{dx}\,f\big(g(x)\big) = f'\big(g(x)\big)\cdot g'(x)$$
+        <div class="caption">$f$ = outer function, &nbsp; $g$ = inner function</div>
+      </div>
+
+      <div class="intuition">
+        <strong>How to remember it:</strong> &nbsp; <em>“derivative of the outside × derivative of the inside.”</em><br><br>
+        Peel it like an onion: differentiate the outermost layer first (leaving the inside untouched), then multiply by the derivative of the inside. Keep going for deeper nesting.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Worked example</h2>
+      <p class="desc">Differentiate $y = (2x+1)^3$ — a cube (outer) wrapped around a line (inner).</p>
+      <div class="deriv-chain">
+        <div class="deriv-row">
+          <div class="eq">$y = (2x+1)^3$</div>
+          <div class="eq">outer $f(u)=u^3$, &nbsp; inner $u=2x+1$</div>
+          <div class="reason">name the layers</div>
+        </div>
+        <div class="deriv-row">
+          <div class="eq">$f'(u) = 3u^2$</div>
+          <div class="eq">$g'(x) = 2$</div>
+          <div class="reason">differentiate each layer</div>
+        </div>
+        <div class="deriv-row">
+          <div class="eq">$\dfrac{dy}{dx} = f'(u)\cdot g'(x)$</div>
+          <div class="eq">$= 3(2x+1)^2 \cdot 2$</div>
+          <div class="reason">outer′ × inner′</div>
+        </div>
+        <div class="deriv-row highlight">
+          <div class="eq"></div>
+          <div class="eq">$= 6(2x+1)^2$</div>
+          <div class="reason">simplify</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Interactive — verify it numerically</h2>
+      <p class="desc">Move $x$ and compare the <strong>exact</strong> chain-rule derivative against a <strong>numerical</strong> estimate. They should match.</p>
+      <div class="slider-group">
+        <div class="slider-label">$x$: <span id="cr-x">1.00</span></div>
+        <input type="range" min="-2" max="3" step="0.05" value="1.0" oninput="updateChain(this)">
+      </div>
+      <div class="output">
+        <div class="output-row"><span class="key">inner $u = 2x+1$</span><span class="val" id="cr-u">—</span></div>
+        <div class="output-row"><span class="key">outer′ $f'(u) = 3u^2$</span><span class="val" id="cr-fp">—</span></div>
+        <div class="output-row"><span class="key">inner′ $g'(x) = 2$</span><span class="val" id="cr-gp">2.0000</span></div>
+        <div class="output-row"><span class="key">$y = (2x+1)^3$</span><span class="val" id="cr-y">—</span></div>
+        <div class="output-row"><span class="key">$dy/dx$ — chain rule (exact)</span><span class="val" id="cr-exact">—</span></div>
+        <div class="output-row"><span class="key">$dy/dx$ — numerical estimate</span><span class="val" id="cr-num">—</span></div>
+      </div>
+      <div class="note">✓ outer′ × inner′ matches the numerical slope.</div>
+    </div>
+
+    <div class="card">
+      <h2>Why cross-entropy needs it <span class="tag green">connection</span></h2>
+      <p class="desc">The loss is a function of a function of a function — three nested layers.</p>
+      <div class="math-block">
+        $$\mathcal{L} = -\log\big(\,\underbrace{p_y}_{\text{inner}}\,\big), \qquad p_y = \underbrace{\text{softmax}(\mathbf{z})_y}_{\text{depends on logits}}$$
+      </div>
+      <div class="deriv-chain">
+        <div class="deriv-row highlight">
+          <div class="eq">$\dfrac{\partial \mathcal{L}}{\partial z_i} = \dfrac{\partial \mathcal{L}}{\partial p_y}\cdot\dfrac{\partial p_y}{\partial z_i}$</div>
+          <div class="eq">$= \underbrace{-\dfrac{1}{p_y}}_{\text{outer: }-\log}\cdot\underbrace{\dfrac{\partial p_y}{\partial z_i}}_{\text{inner: softmax}}$</div>
+          <div class="reason">outer′ × inner′</div>
+        </div>
+      </div>
+      <div class="intuition">
+        The outer layer $-\log(\cdot)$ contributes $-\tfrac{1}{p_y}$; the inner layer (softmax) contributes its Jacobian (computed with the <strong>Quotient Rule</strong> tab). Multiply them and $p_y$ cancels, leaving the famous $\partial\mathcal{L}/\partial z_i = p_i - y_i$. This is the <strong>Step 1</strong> you see in the Gradient tab.
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== LEARNING RATE ==================== -->
+  <div id="lr" class="section">
+
+    <div class="card">
+      <h2>Learning Rate <span class="tag orange">how big a step to take</span></h2>
+      <p class="desc">Once you have the gradient (e.g. $p_i - y_i$), it only tells you the <em>direction</em> to move. The learning rate $\eta$ decides <em>how far</em> you step in that direction.</p>
+
+      <div class="math-block">
+        $$\theta \;\leftarrow\; \theta \;-\; \eta \,\frac{\partial \mathcal{L}}{\partial \theta}$$
+        <div class="caption">$\theta$ = a parameter (weight) · $\eta$ = learning rate (a small positive number) · $\partial\mathcal{L}/\partial\theta$ = gradient</div>
+      </div>
+
+      <div class="intuition">
+        <strong>Why subtract?</strong> The gradient points <em>uphill</em> (direction of increasing loss). We want to <em>decrease</em> loss, so we step the opposite way — hence the minus sign. This is <strong>gradient descent</strong>.<br><br>
+        <strong>Why scale by $\eta$?</strong> The raw gradient can be huge or tiny. $\eta$ is the knob that turns it into a sensible step size.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Too small · just right · too large</h2>
+      <div class="grad-table" style="display:block;">
+      <table class="grad-table">
+        <thead><tr><th>$\eta$</th><th>What happens</th><th>Picture</th></tr></thead>
+        <tbody>
+          <tr><td class="neutral">too small</td><td>Loss creeps down very slowly — training takes forever, may stall.</td><td>🐌 tiny steps</td></tr>
+          <tr><td class="positive">just right</td><td>Loss drops smoothly and quickly to the minimum.</td><td>✅ smooth descent</td></tr>
+          <tr><td class="negative">too large</td><td>Steps overshoot the minimum — loss bounces, oscillates, or blows up to ∞.</td><td>💥 diverges</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="warn">A learning rate that is too high is the #1 cause of training that "explodes" (loss → NaN). When in doubt, lower it.</div>
+    </div>
+
+    <div class="card">
+      <h2>Interactive — gradient descent live</h2>
+      <p class="desc">Minimise a simple bowl-shaped loss $\mathcal{L}(w) = w^2$ (gradient $= 2w$, minimum at $w=0$). Pick a learning rate and starting point, then watch the steps $w \leftarrow w - \eta\cdot 2w$.</p>
+      <div class="two-col">
+        <div>
+          <div class="slider-group">
+            <div class="slider-label">Learning rate $\eta$: <span id="lr-eta">0.10</span></div>
+            <input type="range" min="0.01" max="1.1" step="0.01" value="0.1" oninput="updateLR()">
+          </div>
+          <div class="slider-group">
+            <div class="slider-label">Start $w_0$: <span id="lr-w0">8.0</span></div>
+            <input type="range" min="-10" max="10" step="0.5" value="8" oninput="updateLR()">
+          </div>
+          <div class="output">
+            <div class="output-row"><span class="key">Steps to reach $|w|<0.01$</span><span class="val" id="lr-steps">—</span></div>
+            <div class="output-row"><span class="key">Final $w$ (after 30 steps)</span><span class="val" id="lr-final">—</span></div>
+            <div class="output-row"><span class="key">Final loss $w^2$</span><span class="val loss" id="lr-loss">—</span></div>
+            <div class="output-row"><span class="key">Behaviour</span><span class="val" id="lr-behav">—</span></div>
+          </div>
+        </div>
+        <div>
+          <p style="color:#7dd3fc;font-size:0.83rem;margin-bottom:8px;">Loss $w^2$ at each step:</p>
+          <div id="lr-bars"></div>
+        </div>
+      </div>
+      <div class="note" id="lr-note">For $\mathcal{L}=w^2$: $\eta<0.5$ converges, $\eta=0.5$ jumps straight to 0, $0.5<\eta<1$ oscillates inward, $\eta=1$ bounces forever, $\eta>1$ diverges. Try each!</div>
+    </div>
+
+    <div class="card">
+      <h2>Connection to softmax + cross-entropy <span class="tag green">the full loop</span></h2>
+      <div class="context-box">
+        Putting every tab together, one training step is:<br><br>
+        1. Forward: logits $\mathbf{z}$ → softmax → $p_i$ → loss $\mathcal{L} = -\log p_y$<br>
+        2. Backward: gradient $\dfrac{\partial \mathcal{L}}{\partial z_i} = p_i - y_i$ &nbsp;(Quotient + Chain rule)<br>
+        3. <span class="hl">Update: every weight $\theta \leftarrow \theta - \eta\,\dfrac{\partial \mathcal{L}}{\partial \theta}$</span><br><br>
+        The gradient $p_i - y_i$ flows back through all layers; $\eta$ controls how big each weight nudge is.
+      </div>
+      <div class="note">
+        GPT-2 / nanoGPT typically use $\eta \approx 3\times10^{-4}$ (with AdamW), plus a <strong>warmup</strong> (ramp $\eta$ up from 0) and <strong>cosine decay</strong> (ramp it back down) over training. Modern optimisers like Adam also adapt the effective step size per-parameter, but $\eta$ is still the master scale.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOKENS = ['Token A','Token B','Token C','Token D','Token E'];
+const COLORS = ['blue','green','purple','orange','red'];
+let logits     = [2.0, 1.0, 0.5, -0.5, -1.0];
+let tempLogits = [2.0, 1.0, 0.5, -0.5, -1.0];
+let fullLogits = [2.0, 1.0, 0.5, -0.5, -1.0];
+let gradLogits = [2.0, 1.0, 0.5, -0.5, -1.0];
+let fullCorrect = 2, gradCorrect = 2;
+
+function softmax(z) {
+  const m = Math.max(...z);
+  const e = z.map(v => Math.exp(v - m));
+  const s = e.reduce((a,b) => a+b, 0);
+  return e.map(v => v / s);
+}
+function logSumExp(z) {
+  const m = Math.max(...z);
+  return m + Math.log(z.map(v => Math.exp(v - m)).reduce((a,b) => a+b, 0));
+}
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelector(`[onclick="showTab('${name}')"]`).classList.add('active');
+  document.getElementById(name).classList.add('active');
+}
+
+// ---- Softmax section ----
+function buildSoftmaxSliders() {
+  document.getElementById('logit-sliders').innerHTML = logits.map((v,i) => `
+    <div class="slider-group">
+      <div class="slider-label">${TOKENS[i]}: <span id="ls${i}">${v.toFixed(1)}</span></div>
+      <input type="range" min="-3" max="3" step="0.1" value="${v}" oninput="updateLogit(${i},this.value)">
+    </div>`).join('');
+}
+function updateLogit(i, v) {
+  logits[i] = parseFloat(v);
+  document.getElementById(`ls${i}`).textContent = parseFloat(v).toFixed(1);
+  renderSoftmaxBars();
+}
+function renderSoftmaxBars() {
+  const p = softmax(logits);
+  document.getElementById('logit-bar-rows').innerHTML = logits.map((v,i) => {
+    const pct = clamp((v+3)/6*100, 1, 100).toFixed(1);
+    return `<div class="bar-row"><div class="bar-label">${TOKENS[i]}</div>
+      <div class="bar-wrap"><div class="bar-fill ${COLORS[i]}" style="width:${pct}%">${v.toFixed(1)}</div></div>
+      <div class="bar-val">${v.toFixed(1)}</div></div>`;
+  }).join('');
+  document.getElementById('softmax-bar-rows').innerHTML = p.map((v,i) => `
+    <div class="bar-row"><div class="bar-label">${TOKENS[i]}</div>
+      <div class="bar-wrap"><div class="bar-fill ${COLORS[i]}" style="width:${(v*100).toFixed(1)}%">${(v*100).toFixed(1)}%</div></div>
+      <div class="bar-val">${v.toFixed(3)}</div></div>`).join('');
+  document.getElementById('prob-sum').textContent = p.reduce((a,b)=>a+b,0).toFixed(5);
+  const am = p.indexOf(Math.max(...p));
+  document.getElementById('argmax-token').textContent = `${TOKENS[am]} (p=${p[am].toFixed(3)})`;
+}
+
+// temperature
+function updateTemp(el) {
+  const T = parseFloat(el.value);
+  document.getElementById('temp-val').textContent = T.toFixed(2);
+  const p = softmax(tempLogits.map(v => v/T));
+  document.getElementById('temp-bars').innerHTML = p.map((v,i) => `
+    <div class="bar-row"><div class="bar-label" style="width:60px">${TOKENS[i]}</div>
+      <div class="bar-wrap"><div class="bar-fill ${COLORS[i]}" style="width:${(v*100).toFixed(1)}%"></div></div>
+      <div class="bar-val">${v.toFixed(3)}</div></div>`).join('');
+}
+
+// ---- CE section ----
+function updateCE(el) {
+  const p = parseFloat(el.value);
+  document.getElementById('pval').textContent = p.toFixed(2);
+  const loss = -Math.log(p);
+  document.getElementById('ce-display').textContent = loss.toFixed(4);
+  document.getElementById('ce-display').style.color = loss < 0.3 ? '#4ade80' : loss < 1.5 ? '#fde68a' : '#f87171';
+  document.getElementById('ce-bar').style.width = Math.min(loss/6*100,100)+'%';
+  document.getElementById('ce-bar-val').textContent = loss.toFixed(4);
+}
+
+// ---- Combined section ----
+function buildCorrectBtns(id, sel, cb) {
+  const c = document.getElementById(id);
+  c.innerHTML = '';
+  TOKENS.forEach((t,i) => {
+    const b = document.createElement('button');
+    b.className = 'btn' + (i===sel ? '' : ' secondary');
+    b.textContent = t;
+    b.onclick = () => cb(i);
+    c.appendChild(b);
+  });
+}
+function buildFullSliders() {
+  document.getElementById('full-sliders').innerHTML = fullLogits.map((v,i) => `
+    <div class="slider-group">
+      <div class="slider-label">${TOKENS[i]}: <span id="fl${i}">${v.toFixed(1)}</span></div>
+      <input type="range" min="-3" max="3" step="0.1" value="${v}" oninput="updateFullLogit(${i},this.value)">
+    </div>`).join('');
+}
+function updateFullLogit(i,v) {
+  fullLogits[i]=parseFloat(v);
+  document.getElementById(`fl${i}`).textContent=parseFloat(v).toFixed(1);
+  renderFull();
+}
+function setFullCorrect(i) { fullCorrect=i; buildCorrectBtns('correct-btns',i,setFullCorrect); renderFull(); }
+function renderFull() {
+  const p = softmax(fullLogits);
+  const lse = logSumExp(fullLogits);
+  const py = p[fullCorrect], zy = fullLogits[fullCorrect];
+  document.getElementById('full-logit-bars').innerHTML = fullLogits.map((v,i) => {
+    const pct = clamp((v+3)/6*100,1,100).toFixed(1);
+    return `<div class="bar-row"><div class="bar-label">${TOKENS[i]}${i===fullCorrect?' ★':''}</div>
+      <div class="bar-wrap"><div class="bar-fill ${COLORS[i]}" style="width:${pct}%"></div></div>
+      <div class="bar-val">${v.toFixed(1)}</div></div>`;
+  }).join('');
+  document.getElementById('full-prob-bars').innerHTML = p.map((v,i) => `
+    <div class="bar-row"><div class="bar-label">${TOKENS[i]}${i===fullCorrect?' ★':''}</div>
+      <div class="bar-wrap"><div class="bar-fill ${COLORS[i]}" style="width:${(v*100).toFixed(1)}%"></div></div>
+      <div class="bar-val">${v.toFixed(3)}</div></div>`).join('');
+  document.getElementById('zy-val').textContent  = zy.toFixed(4);
+  document.getElementById('lse-val').textContent = lse.toFixed(4);
+  document.getElementById('py-val').textContent  = py.toFixed(5);
+  document.getElementById('full-loss').textContent = (-Math.log(py)).toFixed(5);
+}
+
+// ---- Gradient section ----
+function buildGradSliders() {
+  document.getElementById('grad-sliders').innerHTML = gradLogits.map((v,i) => `
+    <div class="slider-group">
+      <div class="slider-label">${TOKENS[i]}: <span id="gl${i}">${v.toFixed(1)}</span></div>
+      <input type="range" min="-3" max="3" step="0.1" value="${v}" oninput="updateGradLogit(${i},this.value)">
+    </div>`).join('');
+}
+function updateGradLogit(i,v) {
+  gradLogits[i]=parseFloat(v);
+  document.getElementById(`gl${i}`).textContent=parseFloat(v).toFixed(1);
+  renderGrad();
+}
+function setGradCorrect(i) { gradCorrect=i; buildCorrectBtns('grad-correct-btns',i,setGradCorrect); renderGrad(); }
+function renderGrad() {
+  const p = softmax(gradLogits);
+  const loss = -Math.log(p[gradCorrect]);
+  let sum = 0, html = '';
+  p.forEach((pi,i) => {
+    const yi = i===gradCorrect ? 1 : 0;
+    const g = pi - yi; sum += g;
+    const cls = g < -0.01 ? 'positive' : g > 0.01 ? 'negative' : 'neutral';
+    const eff = g < -0.01 ? '↑ push up' : g > 0.01 ? '↓ push down' : '≈ no change';
+    html += `<tr>
+      <td>${TOKENS[i]}${i===gradCorrect?' ★':''}</td>
+      <td>${gradLogits[i].toFixed(2)}</td>
+      <td>${pi.toFixed(4)}</td>
+      <td>${yi}</td>
+      <td class="${cls}">${g.toFixed(4)}</td>
+      <td class="${cls}">${eff}</td>
+    </tr>`;
+  });
+  document.getElementById('grad-table-body').innerHTML = html;
+  document.getElementById('grad-loss').textContent = loss.toFixed(4);
+  document.getElementById('grad-sum').textContent  = sum.toFixed(7) + '  (≈ 0)';
+}
+
+// ---- Quotient Rule demo: f(x) = x^2 / (x+1) ----
+function updateQuotient(el) {
+  const x = parseFloat(el.value);
+  document.getElementById('qr-x').textContent = x.toFixed(2);
+  const f = (t) => (t*t)/(t+1);
+  const u = x*x, v = x+1, up = 2*x;
+  const exact = (up*v - u*1)/(v*v);      // quotient rule
+  const h = 1e-4;
+  const num = (f(x+h) - f(x-h))/(2*h);   // central difference
+  document.getElementById('qr-u').textContent = u.toFixed(4);
+  document.getElementById('qr-v').textContent = v.toFixed(4);
+  document.getElementById('qr-up').textContent = up.toFixed(4);
+  document.getElementById('qr-f').textContent = f(x).toFixed(4);
+  document.getElementById('qr-exact').textContent = exact.toFixed(4);
+  document.getElementById('qr-num').textContent = num.toFixed(4);
+  const ok = Math.abs(exact - num) < 1e-3;
+  const box = document.getElementById('qr-match');
+  box.className = ok ? 'note' : 'warn';
+  box.textContent = ok ? '✓ The two derivatives agree — the quotient rule is correct.'
+                       : 'Δ ' + Math.abs(exact-num).toExponential(2) + ' (rounding only)';
+}
+
+// ---- Chain Rule demo: y = (2x+1)^3 ----
+function updateChain(el) {
+  const x = parseFloat(el.value);
+  document.getElementById('cr-x').textContent = x.toFixed(2);
+  const g = (t) => 2*t+1;
+  const y = (t) => Math.pow(2*t+1, 3);
+  const u = g(x), fp = 3*u*u, gp = 2;
+  const exact = fp * gp;                  // chain rule
+  const h = 1e-4;
+  const num = (y(x+h) - y(x-h))/(2*h);    // central difference
+  document.getElementById('cr-u').textContent = u.toFixed(4);
+  document.getElementById('cr-fp').textContent = fp.toFixed(4);
+  document.getElementById('cr-y').textContent = y(x).toFixed(4);
+  document.getElementById('cr-exact').textContent = exact.toFixed(4);
+  document.getElementById('cr-num').textContent = num.toFixed(4);
+}
+
+// ---- Learning Rate demo: minimise L(w) = w^2, grad = 2w ----
+function updateLR() {
+  const eta = parseFloat(document.querySelector('#lr input[min="0.01"]').value);
+  const w0  = parseFloat(document.querySelector('#lr input[min="-10"]').value);
+  document.getElementById('lr-eta').textContent = eta.toFixed(2);
+  document.getElementById('lr-w0').textContent = w0.toFixed(1);
+
+  const N = 30;
+  let w = w0, steps = -1;
+  const losses = [w*w];
+  for (let k = 1; k <= N; k++) {
+    w = w - eta * (2*w);              // gradient descent step
+    losses.push(w*w);
+    if (steps < 0 && Math.abs(w) < 0.01) steps = k;
+  }
+  const finalLoss = w*w;
+  const diverged = !isFinite(finalLoss) || finalLoss > w0*w0 + 1e-6;
+
+  document.getElementById('lr-steps').textContent = steps < 0 ? '—' : steps;
+  document.getElementById('lr-final').textContent = isFinite(w) ? w.toFixed(4) : '∞';
+  document.getElementById('lr-loss').textContent = isFinite(finalLoss) ? finalLoss.toFixed(4) : '∞';
+
+  let behav, note;
+  if (diverged)            { behav = '💥 diverges'; note = 'warn'; }
+  else if (steps >= 0 && steps <= 5) { behav = '✅ fast convergence'; note = 'note'; }
+  else if (steps >= 0)     { behav = '🐌 slow convergence'; note = 'note'; }
+  else                     { behav = '↔️ oscillating / slow'; note = 'note'; }
+  const bh = document.getElementById('lr-behav');
+  bh.textContent = behav;
+  bh.style.color = diverged ? '#f87171' : '#4ade80';
+
+  const maxL = Math.max(...losses.filter(isFinite), 1);
+  document.getElementById('lr-bars').innerHTML = losses.slice(0, 16).map((L,k) => {
+    const pct = isFinite(L) ? clamp(L/maxL*100, 1, 100) : 100;
+    const col = !isFinite(L) || L > losses[0] ? 'red' : L < 0.1 ? 'green' : 'orange';
+    return `<div class="bar-row"><div class="bar-label" style="width:34px">${k}</div>
+      <div class="bar-wrap" style="height:16px"><div class="bar-fill ${col}" style="width:${pct.toFixed(1)}%"></div></div>
+      <div class="bar-val" style="width:72px">${isFinite(L)?L.toFixed(2):'∞'}</div></div>`;
+  }).join('');
+}
+
+// ---- Init ----
+buildSoftmaxSliders(); renderSoftmaxBars(); updateTemp({value:1.0});
+updateCE({value:0.5});
+buildFullSliders(); buildCorrectBtns('correct-btns', fullCorrect, setFullCorrect); renderFull();
+buildGradSliders(); buildCorrectBtns('grad-correct-btns', gradCorrect, setGradCorrect); renderGrad();
+updateQuotient({value:2.0});
+updateChain({value:1.0});
+updateLR();
+</script>
+</body>
+</html>

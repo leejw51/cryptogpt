@@ -1,0 +1,36 @@
+[package]
+name = "cryptogpt"
+version = "0.1.0"
+edition = "2021"
+description = "A minimal decoder-only GPT trained from scratch on TinyShakespeare, in Rust with the burn framework"
+
+[[bin]]
+name = "train"
+path = "src/bin/train.rs"
+
+[[bin]]
+name = "generate"
+path = "src/bin/generate.rs"
+
+[dependencies]
+burn = { version = "0.21", default-features = false, features = ["std", "autodiff"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+rand = "0.8"
+
+[features]
+# CPU backend (default): builds fast, no GPU drivers needed.
+default = ["ndarray"]
+ndarray = ["burn/ndarray"]
+# GPU backend: Metal on Apple silicon, Vulkan/DX12 elsewhere. Heavier first build.
+# `fusion` merges many small element-wise kernels into fewer GPU dispatches,
+# which matters a lot for a tiny, dispatch-bound model like this one.
+wgpu = ["burn/wgpu", "burn/fusion"]
+# Apple-only: use the dedicated Metal runtime instead of the generic wgpu path.
+metal = ["wgpu", "burn/metal"]
+
+# A tiny model trains fine in debug, but release is much faster for the CPU backend.
+[profile.release]
+opt-level = 3
+lto = "thin"
